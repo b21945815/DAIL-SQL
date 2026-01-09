@@ -136,6 +136,6 @@ if __name__ == '__main__':
         bird_dev = 'dev.json'
         bird_train = 'train.json'
         bird_table = 'tables.json'
-        bird_db = 'databases'
+        bird_db = 'database'
         ## do not compute the cv_link since it is time-consuming in the huge database in BIRD
         schema_linking_producer(bird_dev, bird_train, bird_table, bird_db, bird_dir, compute_cv_link=False)

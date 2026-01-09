@@ -1,9 +1,7 @@
 protobuf==3.20.*
 tqdm
-openai
-numpy
-transformers
-torch
+openai==0.28.1     
+numpy<2.0.0      
 stanford-corenlp
 sql_metadata
 bpemb

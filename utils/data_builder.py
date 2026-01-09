@@ -83,7 +83,11 @@ class BasicDataset(object):
         if queries:
             skeletons = []
             for query,schema in zip(queries, schemas):
-                skeletons.append(sql2skeleton(query, schema))
+                try:
+                    skel = sql2skeleton(query, schema)
+                    skeletons.append(skel)
+                except Exception:
+                    skeletons.append(query)
             if mini_set and self.mini_test_index_json:
                 mini_index = self.get_mini_index()
                 skeletons = [skeletons[i] for i in mini_index]

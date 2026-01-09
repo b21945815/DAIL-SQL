@@ -1,2 +1,8 @@
 .idea
 .DS_Store
+data
+dataset
+.env
+vector_cache
+third_party
+__pycache__/

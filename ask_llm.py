@@ -1,10 +1,10 @@
 import argparse
 import os
 import json
-
+import time
 import openai
 from tqdm import tqdm
-
+import re
 from llm.chatgpt import init_chatgpt, ask_llm
 from utils.enums import LLM
 from torch.utils.data import DataLoader
@@ -13,18 +13,42 @@ from utils.post_process import process_duplication, get_sqls
 
 QUESTION_FILE = "questions.json"
 
+def clean_sql_output(text):
+    """
+    Extracts the SQL query from the LLM response.
+    It looks for code blocks first (```sql ... ```), otherwise tries to find SELECT ... ;
+    """
+    # 1. Try to find content inside ```sql ... ``` or ``` ... ```
+    pattern = r"```(?:sql)?\s*(SELECT.*?)```"
+    match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+    if match:
+        sql = match.group(1)
+        return " ".join(sql.split())
+
+    # 2. If no code block, try to find the first SELECT statement ending with ; or end of string
+    # This is a basic fallback
+    pattern_select = r"(SELECT\s+.*)(?:;|$)"
+    match_select = re.search(pattern_select, text, re.IGNORECASE | re.DOTALL)
+    if match_select:
+        sql = match_select.group(1)
+        return " ".join(sql.split())
+
+    # 3. Fallback: Return original but flattened
+    return " ".join(text.split())
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--question", type=str)
+    parser.add_argument("--question", type=str) 
     parser.add_argument("--openai_api_key", type=str)
-    parser.add_argument("--openai_group_id", type=str, default="org-ktBefi7n9aK7sZjwc2R9G1Wo")
+    parser.add_argument("--openai_group_id", type=str, default=None)
     parser.add_argument("--model", type=str, choices=[LLM.TEXT_DAVINCI_003, 
                                                       LLM.GPT_35_TURBO,
                                                       LLM.GPT_35_TURBO_0613,
                                                       # LLM.TONG_YI_QIAN_WEN,
                                                       LLM.GPT_35_TURBO_16K,
-                                                      LLM.GPT_4],
+                                                      LLM.GPT_4,
+                                                      LLM.GPT_4O,
+                                                      LLM.GPT_4O_MINI],
                         default=LLM.GPT_35_TURBO)
     parser.add_argument("--start_index", type=int, default=0)
     parser.add_argument("--end_index", type=int, default=1000000)
@@ -63,7 +87,11 @@ if __name__ == '__main__':
 
     token_cnt = 0
     with open(out_file, mode) as f:
+        counter = 0
         for i, batch in enumerate(tqdm(question_loader)):
+            counter += 1
+            if counter <= 92:
+                continue
             if i < args.start_index:
                 continue
             if i >= args.end_index:
@@ -78,6 +106,7 @@ if __name__ == '__main__':
             token_cnt += res["total_tokens"]
             if args.n == 1:
                 for sql in res["response"]:
+                    sql = clean_sql_output(sql)
                     # remove \n and extra spaces
                     sql = " ".join(sql.replace("\n", " ").split())
                     sql = process_duplication(sql)
@@ -94,6 +123,7 @@ if __name__ == '__main__':
                 for sqls, db_id in zip(res["response"], cur_db_ids):
                     processed_sqls = []
                     for sql in sqls:
+                        sql = clean_sql_output(sql)
                         sql = " ".join(sql.replace("\n", " ").split())
                         sql = process_duplication(sql)
                         if sql.startswith("SELECT"):
@@ -111,4 +141,5 @@ if __name__ == '__main__':
 
                     for sql in final_sqls:
                         f.write(sql + "\n")
+            time.sleep(10)
 
